@@ -8,7 +8,7 @@ internal readonly record struct Shortcut(uint Modifiers, uint Key)
     {
         uint modifiers = 0;
         var parts = text.Split('+', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length < 2) throw new FormatException("Use a modifier and a key, for example Ctrl+Alt+Left.");
+        if (parts.Length < 2) throw new FormatException("Modifier and key required.");
         foreach (string part in parts[..^1])
             modifiers |= part.ToLowerInvariant() switch
             {
@@ -19,8 +19,8 @@ internal readonly record struct Shortcut(uint Modifiers, uint Key)
         if (keyName.Length == 1 && char.IsAsciiDigit(keyName[0])) keyName = "D" + keyName;
         if (!Enum.TryParse<Keys>(keyName, true, out var key) || (uint)key is < 0x08 or > 0xFE ||
             key is Keys.ControlKey or Keys.ShiftKey or Keys.Menu or Keys.LWin or Keys.RWin or Keys.F12)
-            throw new FormatException("Choose a regular key. F12 is reserved by Windows.");
-        if ((modifiers & (1 | 2 | 8)) == 0) throw new FormatException("Include Ctrl, Alt, or Win.");
+            throw new FormatException("Unsupported key; F12 is reserved.");
+        if ((modifiers & (1 | 2 | 8)) == 0) throw new FormatException("Ctrl, Alt, or Win required.");
         return new(modifiers, (uint)key);
     }
 

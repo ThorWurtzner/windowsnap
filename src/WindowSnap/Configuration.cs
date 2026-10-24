@@ -98,7 +98,7 @@ public sealed class SettingsStore(string directory)
         }
         catch (Exception ex) when (ex is IOException or JsonException or InvalidDataException or UnauthorizedAccessException)
         {
-            Warning = "Could not read settings. Defaults are active. Your existing file has been kept. " + ex.Message;
+            Warning = "Settings unreadable; defaults loaded. Original file retained. " + ex.Message;
             return Configuration.Defaults();
         }
     }

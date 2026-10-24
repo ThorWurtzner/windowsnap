@@ -8,7 +8,7 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <AssemblyName>WindowSnap</AssemblyName>
     <Version>0.1.0</Version>
-    <Description>Shortcut-driven window positioning. Quietly in your tray.</Description>
+    <Description>Configurable global shortcuts for window positioning.</Description>
     <Company>WindowSnap</Company>
   </PropertyGroup>
 </Project>

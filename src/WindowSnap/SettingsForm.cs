@@ -5,8 +5,8 @@ internal sealed class SettingsForm : Form
     private readonly Configuration draft;
     private readonly DataGridView grid = new();
     private readonly NumericUpDown gap = new() { Minimum = 0, Maximum = 64, Width = 65 };
-    private readonly CheckBox cycle = new() { Text = "Repeat left/right within 1.5 seconds to cycle widths", AutoSize = true };
-    private readonly CheckBox startup = new() { Text = "Start WindowSnap when I sign in", AutoSize = true };
+    private readonly CheckBox cycle = new() { Text = "Cycle widths (1.5 s)", AutoSize = true };
+    private readonly CheckBox startup = new() { Text = "Start at sign-in", AutoSize = true };
     private readonly Label status = new() { AutoSize = false, ForeColor = Color.FromArgb(146, 63, 40), Dock = DockStyle.Fill };
     private readonly Func<Configuration, bool, string?> save;
     private readonly Icon appIcon;
@@ -22,24 +22,16 @@ internal sealed class SettingsForm : Form
         BackColor = Color.FromArgb(248, 249, 251);
         ForeColor = Color.FromArgb(27, 35, 48);
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(750, 700);
-        ClientSize = new Size(840, 830);
+        MinimumSize = new Size(750, 600);
+        ClientSize = new Size(800, 700);
         AutoScaleMode = AutoScaleMode.Dpi;
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(28, 22, 28, 20), ColumnCount = 1, RowCount = 7 };
-        layout.RowStyles.Add(new(SizeType.Absolute, 77));
-        layout.RowStyles.Add(new(SizeType.Absolute, 52));
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), ColumnCount = 1, RowCount = 5 };
         layout.RowStyles.Add(new(SizeType.Percent, 100));
         layout.RowStyles.Add(new(SizeType.Absolute, 46));
-        layout.RowStyles.Add(new(SizeType.Absolute, 99));
-        layout.RowStyles.Add(new(SizeType.Absolute, 63));
-        layout.RowStyles.Add(new(SizeType.Absolute, 43));
+        layout.RowStyles.Add(new(SizeType.Absolute, 110));
+        layout.RowStyles.Add(new(SizeType.Absolute, 28));
+        layout.RowStyles.Add(new(SizeType.Absolute, 38));
         Controls.Add(layout);
-
-        var heading = new Panel { Dock = DockStyle.Fill };
-        heading.Controls.Add(new Label { Text = "A shortcut. A window. Exactly there.", Font = new Font("Segoe UI Semibold", 19), AutoSize = true, Location = new Point(0, 0) });
-        heading.Controls.Add(new Label { Text = "WindowSnap  /  Your quiet window companion", AutoSize = true, ForeColor = Color.FromArgb(101, 111, 128), Location = new Point(1, 43) });
-        layout.Controls.Add(heading, 0, 0);
-        layout.Controls.Add(new Label { Text = "Select an action to change its shortcut. Sizes follow the active monitor.\nCentered half and three-quarters use full height; top/bottom halves suit your portrait screen.", Dock = DockStyle.Fill, ForeColor = Color.FromArgb(86, 96, 111) }, 0, 1);
 
         grid.Dock = DockStyle.Fill;
         grid.BackgroundColor = Color.White;
@@ -61,17 +53,17 @@ internal sealed class SettingsForm : Form
         grid.DefaultCellStyle.SelectionForeColor = ForeColor;
         grid.DefaultCellStyle.Padding = new Padding(8, 0, 4, 0);
         grid.GridColor = Color.FromArgb(238, 241, 246);
-        grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "ACTION", FillWeight = 58 });
-        grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "SHORTCUT", FillWeight = 42 });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Action", FillWeight = 58 });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Shortcut", FillWeight = 42 });
         grid.CellDoubleClick += (_, e) => { if (e.RowIndex >= 0) EditSelected(); };
-        layout.Controls.Add(grid, 0, 2);
+        layout.Controls.Add(grid, 0, 0);
 
         var editing = new FlowLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(0, 8, 0, 0) };
         editing.Controls.Add(Button("Change shortcut", (_, _) => EditSelected(), 139));
-        editing.Controls.Add(Button("Add custom position", (_, _) => AddCustom(), 163));
+        editing.Controls.Add(Button("Add position", (_, _) => AddCustom(), 125));
         editing.Controls.Add(Button("Remove custom", (_, _) => RemoveCustom(), 132));
         editing.Controls.Add(Button("Reset defaults", (_, _) => { draft.Bindings = Configuration.Defaults().Bindings; RefreshGrid(); }, 125));
-        layout.Controls.Add(editing, 0, 3);
+        layout.Controls.Add(editing, 0, 1);
 
         var options = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(0, 7, 0, 0) };
         cycle.Checked = draft.CycleSizes;
@@ -79,16 +71,16 @@ internal sealed class SettingsForm : Form
         options.Controls.Add(cycle);
         options.Controls.Add(startup);
         var gaps = new FlowLayoutPanel { AutoSize = true, Margin = new Padding(0, 2, 0, 0) };
-        gaps.Controls.Add(new Label { Text = "Inset from position edges (pixels)", AutoSize = true, Margin = new Padding(0, 5, 8, 0) });
+        gaps.Controls.Add(new Label { Text = "Inset (px)", AutoSize = true, Margin = new Padding(0, 5, 8, 0) });
         gap.Value = draft.Gap;
         gaps.Controls.Add(gap);
         options.Controls.Add(gaps);
-        layout.Controls.Add(options, 0, 4);
-        status.Text = warning ?? "No polling, network requests, or telemetry. Win+Alt+arrows override Windows snapping.\nShortcuts are suspended while this window is open. Save or close to resume.";
+        layout.Controls.Add(options, 0, 2);
+        status.Text = warning ?? "Shortcuts paused while settings are open.";
         if (warning is null) status.ForeColor = Color.FromArgb(101, 111, 128);
-        layout.Controls.Add(status, 0, 5);
+        layout.Controls.Add(status, 0, 3);
         var footer = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, WrapContents = false };
-        var apply = Button("Save && close", (_, _) => Save(), 132);
+        var apply = Button("Save", (_, _) => Save(), 88);
         apply.BackColor = Color.FromArgb(36, 88, 198);
         apply.ForeColor = Color.White;
         apply.FlatStyle = FlatStyle.Flat;
@@ -97,7 +89,7 @@ internal sealed class SettingsForm : Form
         footer.Controls.Add(apply);
         footer.Controls.Add(cancel);
         CancelButton = cancel;
-        layout.Controls.Add(footer, 0, 6);
+        layout.Controls.Add(footer, 0, 4);
         RefreshGrid();
     }
 
@@ -135,7 +127,7 @@ internal sealed class SettingsForm : Form
 
     private void AddCustom()
     {
-        if (draft.Bindings.Count >= 100) { status.Text = "You can have up to 100 actions."; return; }
+        if (draft.Bindings.Count >= 100) { status.Text = "Action limit: 100."; return; }
         using var editor = new BindingForm(new Binding { Custom = true, Regions = [new(.25, .1, .5, .8)] }, appIcon);
         if (editor.ShowDialog(this) != DialogResult.OK) return;
         draft.Bindings.Add(editor.Result);
@@ -145,7 +137,7 @@ internal sealed class SettingsForm : Form
 
     private void RemoveCustom()
     {
-        if (Selected is not { Custom: true } binding) { status.Text = "Built-in actions can be unassigned using Change shortcut → Clear."; return; }
+        if (Selected is not { Custom: true } binding) { status.Text = "Built-in action. Clear its shortcut to disable."; return; }
         draft.Bindings.Remove(binding);
         RefreshGrid();
     }
@@ -158,7 +150,7 @@ internal sealed class SettingsForm : Form
         if (error is null) { Close(); return; }
         status.Text = error;
         status.ForeColor = Color.FromArgb(146, 63, 40);
-        MessageBox.Show(this, error, "Settings need attention", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        MessageBox.Show(this, error, "Invalid settings", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 }
 
@@ -196,7 +188,7 @@ internal sealed class BindingForm : Form
         }
         name.Text = source.Name;
         if (source.Custom) AddRow("Name", name, 37);
-        try { shortcut.Text = source.Shortcut.Length == 0 ? "Click here, then press your shortcut" : Shortcut.Parse(source.Shortcut).Display; }
+        try { shortcut.Text = source.Shortcut.Length == 0 ? "Press shortcut" : Shortcut.Parse(source.Shortcut).Display; }
         catch (FormatException) { shortcut.Text = source.Shortcut; }
         shortcut.KeyDown += CaptureShortcut;
         shortcut.Enter += (_, _) => StartRecording();
@@ -230,13 +222,13 @@ internal sealed class BindingForm : Form
             AddRow("Preview", preview, 90);
         }
         AddRow("", error, 36);
-        var done = new Button { Text = "Done", Dock = DockStyle.Fill, Height = 32 };
+        var done = new Button { Text = "OK", Dock = DockStyle.Fill, Height = 32 };
         done.Click += (_, _) =>
         {
             if (source.Custom)
             {
-                if (string.IsNullOrWhiteSpace(name.Text) || name.Text.Length > 100) { error.Text = "Use a name of 1–100 characters."; return; }
-                if (!CurrentRegion.IsValid) { error.Text = "The position must fit inside 100% × 100%."; return; }
+                if (string.IsNullOrWhiteSpace(name.Text) || name.Text.Length > 100) { error.Text = "Name: 1–100 characters."; return; }
+                if (!CurrentRegion.IsValid) { error.Text = "Position exceeds monitor bounds."; return; }
                 Result.Name = name.Text.Trim();
                 Result.Regions = [CurrentRegion];
             }
@@ -276,7 +268,7 @@ internal sealed class BindingForm : Form
     {
         if (recorder is not null) return;
         try { recorder = new ShortcutRecorder(() => shortcut.Focused && ContainsFocus, SetShortcut); }
-        catch (System.ComponentModel.Win32Exception) { error.Text = "Windows blocked the shortcut recorder."; }
+        catch (System.ComponentModel.Win32Exception) { error.Text = "Shortcut capture unavailable."; }
     }
 
     private void StopRecording() { recorder?.Dispose(); recorder = null; }

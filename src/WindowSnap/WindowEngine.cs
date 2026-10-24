@@ -22,9 +22,9 @@ internal sealed class WindowEngine(bool allowOwnWindows = false)
         if (!IsEligible(window, out uint process, out uint thread)) return null;
         // Bound responsiveness: never synchronously resize an unresponsive foreign window.
         if (Native.SendMessageTimeout(window, 0, 0, 0, 0x0002 | 0x0020, 150, out _) == 0)
-            return "That app is busy and did not respond. Try the shortcut again in a moment.";
+            return "Window not responding.";
         var placement = Native.Placement.Create();
-        if (!Native.GetWindowPlacement(window, ref placement)) return "Windows could not read this window's position.";
+        if (!Native.GetWindowPlacement(window, ref placement)) return "Cannot read window position.";
         var before = Native.VisibleBounds(window);
         var monitors = Native.Monitors();
         int current = monitors.FindIndex(m => m.Handle == Native.MonitorFromWindow(window, 2));
@@ -42,7 +42,7 @@ internal sealed class WindowEngine(bool allowOwnWindows = false)
             if (history.Entries.Count == 0) return null;
             // Manual moves invalidate stale undo history, including most recycled HWND cases.
             if (history.LastMaximized != maximized || !maximized && !before.Near(history.LastResult, 8))
-            { history.Entries.Clear(); return "This window was moved outside WindowSnap. Undo history has been cleared."; }
+            { history.Entries.Clear(); return "Undo unavailable: window moved externally."; }
             var old = history.Entries[^1];
             if (Native.SetWindowPlacement(window, old.Placement))
             {
@@ -53,7 +53,7 @@ internal sealed class WindowEngine(bool allowOwnWindows = false)
                 history.LastMaximized = Native.IsZoomed(window);
                 return null;
             }
-            return "Windows could not restore this window.";
+            return "Cannot restore window.";
         }
 
         Box target;
@@ -88,7 +88,7 @@ internal sealed class WindowEngine(bool allowOwnWindows = false)
         {
             Native.ShowWindowAsync(window, 9);
             for (int attempt = 0; attempt < 8 && Native.IsZoomed(window); attempt++) await Task.Delay(25);
-            if (Native.IsZoomed(window)) return "This app did not restore from maximize.";
+            if (Native.IsZoomed(window)) return "Cannot unmaximize window.";
         }
         var snapshot = new Snapshot(placement, before);
         bool success;
@@ -109,7 +109,7 @@ internal sealed class WindowEngine(bool allowOwnWindows = false)
             // Some apps enforce minimum sizes. Keep undo when Windows did partially move them.
             if (!after.Near(before) || Native.IsZoomed(window) != maximized) Remember(history, snapshot, after, Native.IsZoomed(window));
             cycle = default;
-            return "This app could not use the requested size. It may enforce a minimum size or run as administrator.";
+            return "Resize failed: minimum size or elevated window.";
         }
         Remember(history, snapshot, after, Native.IsZoomed(window));
         cycle = binding.Kind == ActionKind.Position ? (window, binding.Id, index, after, Stopwatch.GetTimestamp()) : default;

@@ -34,7 +34,7 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            MessageBox.Show("WindowSnap could not start.\n\n" + ex.Message, "WindowSnap", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show("Startup failed.\n\n" + ex.Message, "WindowSnap", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally { mutex.ReleaseMutex(); }
     }
@@ -62,9 +62,7 @@ internal sealed class TrayContext : ApplicationContext
         this.config = config;
         icon = CreateIcon();
         var menu = new ContextMenuStrip();
-        menu.Items.Add("WindowSnap", null, (_, _) => ShowSettings());
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Shortcuts & settings…", null, (_, _) => ShowSettings());
+        menu.Items.Add("Settings…", null, (_, _) => ShowSettings());
         pause.Click += (_, _) =>
         {
             paused = !paused;
@@ -74,7 +72,7 @@ internal sealed class TrayContext : ApplicationContext
         };
         menu.Items.Add(pause);
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Quit WindowSnap", null, (_, _) => ExitThread());
+        menu.Items.Add("Exit", null, (_, _) => ExitThread());
         tray = new NotifyIcon { Icon = icon, Text = "WindowSnap", ContextMenuStrip = menu, Visible = true };
         tray.DoubleClick += (_, _) => ShowSettings();
         tray.BalloonTipClicked += (_, _) => ShowSettings();
@@ -82,7 +80,7 @@ internal sealed class TrayContext : ApplicationContext
         hotkeys.InstanceMessage = quit => { if (quit) ExitThread(); else ShowSettings(); };
         failures = hotkeys.Register(config);
         UpdateStatus();
-        if (failures.Count > 0 || store.Warning is not null) Notify("Some shortcuts need attention. Open settings from the tray.");
+        if (failures.Count > 0 || store.Warning is not null) Notify("Shortcut or settings error. Open Settings.");
     }
 
     public void ShowSettings()
@@ -132,7 +130,7 @@ internal sealed class TrayContext : ApplicationContext
             return null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or System.Security.SecurityException)
-        { return "Could not save settings: " + ex.Message; }
+        { return "Save failed: " + ex.Message; }
     }
 
     private async void Dispatch(Binding binding, nint window)
@@ -148,7 +146,7 @@ internal sealed class TrayContext : ApplicationContext
             if (issue is not null && !exiting) Notify(issue);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
-        { if (!exiting) Notify("Could not move this window. " + ex.Message); }
+        { if (!exiting) Notify("Move failed: " + ex.Message); }
         finally { pending--; serial.Release(); }
     }
 
@@ -156,7 +154,7 @@ internal sealed class TrayContext : ApplicationContext
     {
         pause.Checked = paused;
         if (exiting) return;
-        tray.Text = paused ? "WindowSnap — paused" : settings is not null ? "WindowSnap — editing shortcuts" : failures.Count > 0 ? "WindowSnap — shortcut conflict" : "WindowSnap — ready";
+        tray.Text = paused ? "WindowSnap — paused" : settings is not null ? "WindowSnap — settings" : failures.Count > 0 ? "WindowSnap — shortcut conflict" : "WindowSnap";
     }
 
     private void Notify(string message)

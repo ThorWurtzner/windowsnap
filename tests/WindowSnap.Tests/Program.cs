@@ -16,6 +16,11 @@ internal static class Program
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
+        if (args.Contains("--preview-only"))
+        {
+            RenderPreview();
+            return failed == 0 ? 0 : 1;
+        }
         GeometryTests();
         SettingsTests();
         HotkeyTests();
@@ -344,7 +349,7 @@ internal static class Program
             using var form = new BindingForm(new Binding { Custom = true, Regions = [new(.25, .1, .5, .8)] }, SystemIcons.Application);
             form.Show();
             Application.DoEvents();
-            var done = form.Controls.OfType<TableLayoutPanel>().Single().Controls.OfType<Button>().Single(b => b.Text == "Done");
+            var done = form.Controls.OfType<TableLayoutPanel>().Single().Controls.OfType<Button>().Single(b => b.Text == "OK");
             var location = form.PointToClient(done.PointToScreen(Point.Empty));
             Check(location.Y + done.Height <= form.ClientSize.Height, "Done is clipped");
             using var bitmap = new Bitmap(form.Width, form.Height);

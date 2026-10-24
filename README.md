@@ -1,14 +1,14 @@
 # WindowSnap
 
-A small Windows tray app: press a shortcut and put the focused window exactly where you want it. Inspired by Rectangle's keyboard workflow. Built for an ultrawide main display and a portrait monitor on the left, with any monitor arrangement supported.
+Windows window manager with configurable global shortcuts and percentage-based positions.
 
 ## Run it
 
 Open `dist/WindowSnap.exe`. Open its tray icon to change shortcuts and custom positions. Close or save settings to activate the shortcuts. Windows may place the tray icon in the overflow area by the clock.
 
-Requires Windows 10/11 x64 and the **.NET 10 Desktop Runtime**. The runtime is already installed on this machine. There is no installer, administrator requirement, subscription, or account. The executable is unsigned; Windows may show its usual warning for a locally built app.
+Requires Windows 10/11 x64 and the **.NET 10 Desktop Runtime**. The executable is unsigned and runs without administrator privileges.
 
-Settings are stored in `data/settings.json` beside the executable. Keep the app in a writable folder. Moving the app is fine; toggle **Start WindowSnap when I sign in** off and on afterward to update its path. Signing in launches it silently in the tray.
+Settings are stored in `data/settings.json` beside the executable. Keep the app in a writable folder. After moving it, toggle **Start at sign-in** off and on to update the startup path.
 
 ## Shortcuts
 
@@ -32,7 +32,7 @@ The default modifier pair is **Win + Alt**:
 | Home / Page Up / End / Page Down | Top-left / top-right / bottom-left / bottom-right quarter |
 | Shift + Left / Right | Previous / next monitor, in physical left-to-right order, wrapping at the ends |
 
-**Add custom position** lets you enter left, top, width, and height as percentages of the current monitor's usable area. For a centered 60% × 80% window: left 20%, top 10%, width 60%, height 80%. A preview shows the position. Custom positions have editable names and shortcuts.
+**Add position** accepts left, top, width, and height as percentages of the current monitor's work area. For a centered 60% × 80% window: left 20%, top 10%, width 60%, height 80%.
 
 The optional inset is measured in physical pixels on every position edge. Zero gives edge-to-edge snapping. Maximize uses Windows' actual maximized state and ignores the inset.
 

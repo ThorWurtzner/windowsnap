@@ -7,6 +7,7 @@
 - Real Win+Alt+Left key events verified against the test window: exactly one action while held; no Start/menu opening when released. All default shortcuts were available after the Windows-reserved arrow fallback and Shift-number defaults were applied.
 - Shortcut parsing, uniqueness, conflict detection, registration cleanup, message dispatch, recorder modifier handling, settings round trips, independent edits, and preservation of unreadable settings covered.
 - Settings and custom position editor rendered and visually inspected. The custom editor's confirmation button is checked for clipping.
+- Subsequent UI text/layout cleanup: release build and both form render checks passed.
 - Published app successfully launched using the machine's existing .NET 10 Desktop Runtime. Current-user sign-in startup was enabled and verified.
 - Silent launch followed by a second-instance settings request verified against the published app: settings visible and responding. The first-show visibility fix was rebuilt and checked after the automated suite.
 - Initial tray-only sample: **47.8 MB working set**, **11.5 MB private memory**, **15.62 ms CPU time over 8 seconds** (about 0.20% of one CPU core). This short idle sample is a measurement, not a guarantee under every workload.
