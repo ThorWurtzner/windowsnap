@@ -1,0 +1,7 @@
+.tools/
+.local/
+**/bin/
+**/obj/
+dist/
+*.user
+*.suo
