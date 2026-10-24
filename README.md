@@ -14,6 +14,8 @@ Settings are stored in `data/settings.json` beside the executable. Keep the app 
 
 Every shortcut is editable: select an action, choose **Change shortcut**, click the shortcut field, and press the desired keys. **Clear shortcut** leaves an action unassigned. Duplicates and shortcuts registered by another app are reported before saving. Settings suspend WindowSnap's shortcuts while open, including while recording a new one. Closing with Cancel discards the changes.
 
+Monitor diagrams highlight each action's target area. The shortcut editor shows every width in a cycling action, in order. Custom position diagrams update as the percentages change.
+
 The default modifier pair is **Win + Alt**:
 
 | Keys after Win + Alt | Action |

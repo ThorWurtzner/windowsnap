@@ -359,5 +359,32 @@ internal static class Program
             form.Close();
             Console.WriteLine("Preview: " + target);
         });
+        using (var form = new BindingForm(Configuration.Defaults().Bindings.First(b => b.Id == "left"), SystemIcons.Application))
+        {
+            form.Show();
+            Application.DoEvents();
+            using var bitmap = new Bitmap(form.Width, form.Height);
+            form.DrawToBitmap(bitmap, new Rectangle(0, 0, form.Width, form.Height));
+            string target = Path.Combine(Environment.CurrentDirectory, ".local", "cycle-binding-preview.png");
+            bitmap.Save(target);
+            form.Close();
+            Console.WriteLine("Preview: " + target);
+        }
+        var bindings = Configuration.Defaults().Bindings;
+        using (var bitmap = new Bitmap(780, bindings.Count * 56))
+        using (var graphics = Graphics.FromImage(bitmap))
+        using (var font = new Font("Segoe UI", 10))
+        {
+            graphics.Clear(Color.White);
+            for (int index = 0; index < bindings.Count; index++)
+            {
+                var binding = bindings[index];
+                TextRenderer.DrawText(graphics, binding.Name, font, new Rectangle(12, index * 56, 290, 56), Color.Black, TextFormatFlags.VerticalCenter);
+                PositionDiagram.DrawSequence(graphics, new Rectangle(310, index * 56 + 2, 450, 52), binding, font);
+            }
+            string target = Path.Combine(Environment.CurrentDirectory, ".local", "position-diagrams.png");
+            bitmap.Save(target);
+            Console.WriteLine("Preview: " + target);
+        }
     }
 }

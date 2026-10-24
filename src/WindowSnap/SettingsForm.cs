@@ -23,7 +23,7 @@ internal sealed class SettingsForm : Form
         ForeColor = Color.FromArgb(27, 35, 48);
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(750, 600);
-        ClientSize = new Size(800, 700);
+        ClientSize = new Size(820, 740);
         AutoScaleMode = AutoScaleMode.Dpi;
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), ColumnCount = 1, RowCount = 5 };
         layout.RowStyles.Add(new(SizeType.Percent, 100));
@@ -48,13 +48,23 @@ internal sealed class SettingsForm : Form
         grid.ColumnHeadersDefaultCellStyle.ForeColor = ForeColor;
         grid.ColumnHeadersDefaultCellStyle.Font = new Font(Font, FontStyle.Bold);
         grid.ColumnHeadersHeight = 34;
-        grid.RowTemplate.Height = 30;
+        grid.RowTemplate.Height = 40;
         grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(225, 235, 253);
         grid.DefaultCellStyle.SelectionForeColor = ForeColor;
         grid.DefaultCellStyle.Padding = new Padding(8, 0, 4, 0);
         grid.GridColor = Color.FromArgb(238, 241, 246);
-        grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Action", FillWeight = 58 });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Position", Width = 100, AutoSizeMode = DataGridViewAutoSizeColumnMode.None });
+        grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Action", FillWeight = 56 });
         grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Shortcut", FillWeight = 42 });
+        grid.CellPainting += (_, e) =>
+        {
+            if (e.ColumnIndex != 0 || e.RowIndex < 0 || e.Graphics is null || grid.Rows[e.RowIndex].Tag is not Binding binding) return;
+            e.Paint(e.CellBounds, DataGridViewPaintParts.Background | DataGridViewPaintParts.SelectionBackground | DataGridViewPaintParts.Border);
+            var area = Rectangle.Inflate(e.CellBounds, -7, -3);
+            PositionDiagram.Draw(e.Graphics, area, binding, showCycle: cycle.Checked);
+            e.Handled = true;
+        };
+        cycle.CheckedChanged += (_, _) => grid.Invalidate();
         grid.CellDoubleClick += (_, e) => { if (e.RowIndex >= 0) EditSelected(); };
         layout.Controls.Add(grid, 0, 0);
 
@@ -108,7 +118,9 @@ internal sealed class SettingsForm : Form
             string shortcut;
             try { shortcut = string.IsNullOrWhiteSpace(binding.Shortcut) ? "Unassigned" : Shortcut.Parse(binding.Shortcut).Display; }
             catch (FormatException) { shortcut = binding.Shortcut; }
-            grid.Rows.Add(binding.Name, shortcut);
+            int index = grid.Rows.Add(binding.Name, binding.Name, shortcut);
+            grid.Rows[index].Tag = binding;
+            grid.Rows[index].Cells[0].ToolTipText = binding.Name;
         }
     }
 
@@ -117,7 +129,7 @@ internal sealed class SettingsForm : Form
     private void EditSelected()
     {
         if (Selected is not { } binding) return;
-        using var editor = new BindingForm(binding, appIcon);
+        using var editor = new BindingForm(binding, appIcon, cycle.Checked);
         if (editor.ShowDialog(this) != DialogResult.OK) return;
         int index = draft.Bindings.IndexOf(binding);
         draft.Bindings[index] = editor.Result;
@@ -164,7 +176,7 @@ internal sealed class BindingForm : Form
     private readonly Label error = new() { Dock = DockStyle.Fill, ForeColor = Color.Maroon };
     private ShortcutRecorder? recorder;
 
-    public BindingForm(Binding source, Icon icon)
+    public BindingForm(Binding source, Icon icon, bool cycleSizes = true)
     {
         Result = new() { Id = source.Id, Name = source.Name, Kind = source.Kind, Shortcut = source.Shortcut, Regions = [.. source.Regions], Custom = source.Custom };
         Text = source.Custom ? "Custom position" : source.Name;
@@ -174,8 +186,8 @@ internal sealed class BindingForm : Form
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = MinimizeBox = false;
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(500, source.Custom ? 450 : 195);
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(22), ColumnCount = 2, RowCount = source.Custom ? 10 : 4, GrowStyle = TableLayoutPanelGrowStyle.FixedSize };
+        ClientSize = new Size(500, source.Custom ? 450 : 285);
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(22), ColumnCount = 2, RowCount = source.Custom ? 10 : 5, GrowStyle = TableLayoutPanelGrowStyle.FixedSize };
         layout.ColumnStyles.Add(new(SizeType.Absolute, 115));
         layout.ColumnStyles.Add(new(SizeType.Percent, 100));
         Controls.Add(layout);
@@ -211,16 +223,13 @@ internal sealed class BindingForm : Form
                 values[i].ValueChanged += (_, _) => preview.Invalidate();
                 AddRow(labels[i], values[i], 33);
             }
-            preview.Paint += (_, e) =>
-            {
-                var bounds = new Rectangle(2, 5, preview.Width - 5, preview.Height - 10);
-                e.Graphics.FillRectangle(Brushes.Gainsboro, bounds);
-                var r = CurrentRegion;
-                using var brush = new SolidBrush(r.IsValid ? Color.FromArgb(36, 88, 198) : Color.IndianRed);
-                e.Graphics.FillRectangle(brush, bounds.X + (float)r.X * bounds.Width, bounds.Y + (float)r.Y * bounds.Height, (float)r.Width * bounds.Width, (float)r.Height * bounds.Height);
-            };
-            AddRow("Preview", preview, 90);
         }
+        preview.Paint += (_, e) =>
+        {
+            var binding = source.Custom ? new Binding { Regions = [CurrentRegion] } : Result;
+            PositionDiagram.DrawSequence(e.Graphics, new Rectangle(0, 2, preview.Width, preview.Height - 4), binding, Font, cycleSizes);
+        };
+        AddRow("Position", preview, 90);
         AddRow("", error, 36);
         var done = new Button { Text = "OK", Dock = DockStyle.Fill, Height = 32 };
         done.Click += (_, _) =>
