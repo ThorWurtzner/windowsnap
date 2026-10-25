@@ -5,3 +5,5 @@
 dist/
 *.user
 *.suo
+**/startup.log
+**/startup.log.old

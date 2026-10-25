@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Xml.Linq;
 using WindowSnap;
 using Region = WindowSnap.Region;
 using Shortcut = WindowSnap.Shortcut;
@@ -23,6 +24,7 @@ internal static class Program
         }
         GeometryTests();
         SettingsTests();
+        StartupTests();
         HotkeyTests();
         if (args.Contains("--native"))
         {
@@ -144,6 +146,96 @@ internal static class Program
                 Check(store.Warning is not null); Equal("{ broken", File.ReadAllText(store.FilePath));
             }
             finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+        });
+    }
+
+    private static void StartupTests()
+    {
+        const string executable = @"C:\Apps\WindowSnap & More\WindowSnap.exe";
+        const string directory = @"C:\Apps\WindowSnap & More";
+        const string user = "S-1-5-21-123-456-789-1001";
+        XNamespace ns = "http://schemas.microsoft.com/windows/2004/02/mit/task";
+        Test("sign-in task uses an interactive, least-privilege current-user trigger", () =>
+        {
+            var xml = XDocument.Parse(Startup.BuildTaskXml(executable, directory, user));
+            Equal(user, xml.Descendants(ns + "LogonTrigger").Single().Element(ns + "UserId")!.Value);
+            Equal("PT10S", xml.Descendants(ns + "Delay").Single().Value);
+            Equal("InteractiveToken", xml.Descendants(ns + "LogonType").Single().Value);
+            Equal("LeastPrivilege", xml.Descendants(ns + "RunLevel").Single().Value);
+            Equal(executable, xml.Descendants(ns + "Command").Single().Value);
+            Equal(directory, xml.Descendants(ns + "WorkingDirectory").Single().Value);
+            Equal("--quiet --startup", xml.Descendants(ns + "Arguments").Single().Value);
+        });
+        Test("sign-in task retries failures and supports an unlimited tray session on battery", () =>
+        {
+            var xml = XDocument.Parse(Startup.BuildTaskXml(executable, directory, user));
+            Equal("PT1M", xml.Descendants(ns + "RestartOnFailure").Single().Element(ns + "Interval")!.Value);
+            Equal("3", xml.Descendants(ns + "RestartOnFailure").Single().Element(ns + "Count")!.Value);
+            Equal("IgnoreNew", xml.Descendants(ns + "MultipleInstancesPolicy").Single().Value);
+            Equal("PT0S", xml.Descendants(ns + "ExecutionTimeLimit").Single().Value);
+            Equal("false", xml.Descendants(ns + "DisallowStartIfOnBatteries").Single().Value);
+            Equal("false", xml.Descendants(ns + "StopIfGoingOnBatteries").Single().Value);
+            Equal("4", xml.Descendants(ns + "Priority").Single().Value);
+        });
+        Test("startup verification rejects stale paths, accounts, and disabled logon triggers", () =>
+        {
+            string xml = Startup.BuildTaskXml(executable, directory, user);
+            Check(Startup.MatchesRegistration(xml, executable, user));
+            Check(!Startup.MatchesRegistration(xml, @"C:\Moved\WindowSnap.exe", user));
+            Check(!Startup.MatchesRegistration(xml, executable, "S-1-5-21-123-456-789-1002"));
+            var disabled = XDocument.Parse(xml);
+            disabled.Descendants(ns + "LogonTrigger").Single().Element(ns + "Enabled")!.Value = "false";
+            Check(!Startup.MatchesRegistration(disabled.ToString(), executable, user));
+        });
+        Test("startup verification accepts Windows-normalized accounts and omitted defaults", () =>
+        {
+            using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+            string sid = identity.User!.Value;
+            var xml = XDocument.Parse(Startup.BuildTaskXml(executable, directory, sid));
+            var trigger = xml.Descendants(ns + "LogonTrigger").Single();
+            trigger.Element(ns + "UserId")!.Value = identity.Name;
+            trigger.Element(ns + "Enabled")!.Remove();
+            xml.Descendants(ns + "Principal").Single().Element(ns + "RunLevel")!.Remove();
+            Check(Startup.MatchesRegistration(xml.ToString(), executable, sid));
+        });
+        Test("startup diagnostics rotate and retain a failure record", () =>
+        {
+            string root = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, ".local", "tests"));
+            string target = Path.Combine(root, Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(target);
+            try
+            {
+                StartupLog.Initialize(target);
+                string file = Path.Combine(target, "startup.log");
+                File.WriteAllText(file, new string('x', 65 * 1024));
+                StartupLog.Write("fixture failure", new InvalidOperationException("fixture detail"));
+                Check(File.Exists(file + ".old"));
+                string current = File.ReadAllText(file);
+                Check(current.Contains("fixture failure") && current.Contains("fixture detail") && current.Contains("pid="));
+                Check(new FileInfo(file).Length < 4096);
+            }
+            finally
+            {
+                if (Directory.GetParent(target)?.FullName == root) Directory.Delete(target, true);
+            }
+        });
+        Test("unwritable diagnostics do not prevent the application from starting", () =>
+        {
+            string root = Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, ".local", "tests"));
+            string target = Path.Combine(root, Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(target);
+            try
+            {
+                string obstacle = Path.Combine(target, "file");
+                File.WriteAllText(obstacle, "fixture");
+                StartupLog.Initialize(obstacle);
+                StartupLog.Write("ready");
+            }
+            finally
+            {
+                if (Directory.GetParent(target)?.FullName == root) Directory.Delete(target, true);
+                StartupLog.Initialize(Path.Combine(Environment.CurrentDirectory, ".local", "test-logs"));
+            }
         });
     }
 

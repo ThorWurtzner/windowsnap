@@ -14,3 +14,14 @@
 - Initial tray-only sample: **47.8 MB working set**, **11.5 MB private memory**, **15.62 ms CPU time over 8 seconds** (about 0.20% of one CPU core). This short idle sample is a measurement, not a guarantee under every workload.
 
 The portable package is generated in `dist/`. It contains the executable and its three companion runtime files; it requires the .NET 10 Desktop Runtime. Local settings, tool downloads, binaries, and render previews are excluded from Git.
+
+## Startup repair — 25 October 2026
+
+- The previous Run entry pointed to an existing executable, but the app was not running. No matching crash was found in the checked recent Application errors; the original missed launch remains unexplained.
+- Version 0.1.1 replaces that entry with a current-user, least-privilege interactive sign-in task: 10-second delay, three failure retries at one-minute intervals, normal priority, battery operation, and no execution time limit. No password is stored.
+- **37 checks passed, 0 failed**, including task policy, Windows-normalized account names/defaults, diagnostics rotation, and the original shortcut/window/preview checks. Release build: **0 warnings, 0 errors**.
+- Registered the task through the published app; verified the old Run entry was removed. Started the task through Windows and confirmed its app process reached `ready`, with the task reported as Running.
+- Verified a controlled quiet startup failure returns exit code 1. Verified a second quiet launch exits successfully without opening settings or creating another app instance.
+- Disabled and re-enabled startup through the published app, verified task removal/recreation, then left WindowSnap running from the task. Saved settings remained byte-for-byte unchanged.
+- Lifecycle diagnostics stay in `data/startup.log` and its rotated backup; both are excluded from Git.
+- The next actual sign-in/reboot remains the final confirmation of the logon trigger. No reboot or sign-out was performed during verification.

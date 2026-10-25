@@ -45,14 +45,16 @@ The optional inset is measured in physical pixels on every position edge. Zero g
 - Transferring monitors preserves proportional size and position. Maximized windows stay maximized. Monitor order follows desktop coordinates, so the portrait screen on the left is the previous monitor.
 - Maintains up to 20 undo steps per window for up to 64 windows, in memory only. Manually moving a window invalidates its undo history to avoid restoring stale positions.
 - Ignores the desktop, taskbars, menus, minimized windows, non-resizable dialogs, and its own settings window.
-- One instance per desktop session. Launching it again opens settings. Tray controls let you pause or quit. Quitting releases every registered shortcut.
-- Startup is a current-user Windows Run entry. Turning it off deletes only WindowSnap's entry. Closing the app leaves the sign-in preference in place; disable it before deleting the app.
+- One instance per desktop session. Launching it again opens settings; a second silent launch exits without opening settings or pausing shortcuts. Tray controls let you pause or quit. Quitting releases every registered shortcut.
+- **Start at sign-in** creates a current-user scheduled task named `WindowSnap-<user SID>`. It launches the app 10 seconds after sign-in, at normal priority without elevation or a stored password, and retries failed launches up to three times at one-minute intervals. It runs on battery and has no session time limit. Enabling it migrates the previous Run registry entry; disabling it removes WindowSnap's task and legacy entry. Closing the app leaves the sign-in preference in place; disable it before deleting the app.
 
 ## Resource use and limits
 
 The idle process waits for Windows messages. It has **no polling loop, background scan, network code, telemetry, auto-updater, or third-party packages**. Most shortcuts use Windows' registered hotkeys. Recent Windows versions already reserve Win+Alt+arrows, so an event-driven keyboard handler supports those four explicitly assigned combinations when registration is blocked. It passes other keys through without logging, storing, or transmitting them. It is removed while settings are open, on pause, and on exit. These four combinations override Windows or other applications while WindowSnap is active. Number shortcuts include Shift to preserve Windows' taskbar menus.
 
 A separate temporary key capture exists only while the shortcut field is focused, so recording Windows-key combinations does not trigger their normal actions. It is removed on focus loss or closing the editor. Moving a window uses short, bounded delays and a small serialized queue; holding a key does not repeatedly fire actions. Actual memory and CPU depend on Windows and the runtime; zero resource usage is not a promise.
+
+Launch, ready, exit, and failure records are saved locally in `data/startup.log`, with one rotated backup after 64 KB. The log contains timestamps, process IDs, app version, and exception details; it does not record keys, window titles, or shortcut settings. Silent startup failures return a nonzero exit code for Task Scheduler's retry policy.
 
 Apps enforce their own minimum sizes, and normal-privilege software may not resize elevated apps. A hung app is skipped after a short response check. Exclusive full-screen games and special windows are not guaranteed to behave like normal desktop windows. WindowSnap does not change Windows' native mouse snapping settings. Global shortcuts reserve the combinations you assign; Windows-reserved combinations can conflict. Use the editor to choose alternatives. Win+Alt defaults avoid Ctrl+Alt / AltGr character conflicts on European keyboards.
 

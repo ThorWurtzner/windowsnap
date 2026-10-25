@@ -5,38 +5,57 @@ namespace WindowSnap;
 internal static class Program
 {
     [STAThread]
-    private static void Main(string[] args)
+    private static int Main(string[] args)
     {
-        ApplicationConfiguration.Initialize();
-        using var mutex = new Mutex(true, @"Local\WindowSnap.Desktop", out bool first);
-        if (!first)
-        {
-            nint existing = Native.FindWindowEx(new nint(-3), 0, null, "WindowSnap.Hotkeys");
-            if (existing != 0) Native.PostMessage(existing, args.Contains("--quit") ? 0x8002u : 0x8001u, 0, 0);
-            return;
-        }
-        if (args.Contains("--quit")) return;
+        Mutex? mutex = null;
+        bool ownsMutex = false;
+        bool quiet = args.Contains("--quiet");
         try
         {
             // Portable data lives with the executable; no installation or administrator access.
             string directory = Path.Combine(AppContext.BaseDirectory, "data");
             int dataArgument = Array.IndexOf(args, "--data-dir");
             if (dataArgument >= 0 && dataArgument + 1 < args.Length) directory = Path.GetFullPath(args[dataArgument + 1]);
+            StartupLog.Initialize(directory);
+            StartupLog.Write($"launch mode={(args.Contains("--startup") ? "sign-in" : "manual")} version={typeof(Program).Assembly.GetName().Version}");
+            AppDomain.CurrentDomain.UnhandledException += (_, e) => StartupLog.Write("unhandled exception", e.ExceptionObject as Exception);
+            Application.SetUnhandledExceptionMode(UnhandledExceptionMode.ThrowException);
+            ApplicationConfiguration.Initialize();
+            // Explicit preference changes must also work while the tray instance is running.
+            if (args.Contains("--enable-startup")) Startup.Enabled = true;
+            if (args.Contains("--disable-startup")) Startup.Enabled = false;
+            mutex = new Mutex(true, @"Local\WindowSnap.Desktop", out ownsMutex);
+            if (!ownsMutex)
+            {
+                nint existing = Native.FindWindowEx(new nint(-3), 0, null, "WindowSnap.Hotkeys");
+                if (existing != 0 && (args.Contains("--quit") || args.Contains("--settings") || !quiet))
+                    Native.PostMessage(existing, args.Contains("--quit") ? 0x8002u : 0x8001u, 0, 0);
+                StartupLog.Write("existing instance");
+                return 0;
+            }
+            if (args.Contains("--quit")) return 0;
             var store = new SettingsStore(directory);
             bool firstRun = !File.Exists(store.FilePath);
             var config = store.Load();
             if (firstRun) store.Save(config);
-            if (args.Contains("--enable-startup")) Startup.Enabled = true;
-            if (args.Contains("--disable-startup")) Startup.Enabled = false;
             using var context = new TrayContext(store, config);
-            if (args.Contains("--settings") || firstRun && !args.Contains("--quiet")) context.ShowSettings();
+            if (args.Contains("--settings") || firstRun && !quiet) context.ShowSettings();
+            StartupLog.Write("ready");
             Application.Run(context);
+            StartupLog.Write("exit");
+            return 0;
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Startup failed.\n\n" + ex.Message, "WindowSnap", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            StartupLog.Write("startup failed", ex);
+            if (!quiet) MessageBox.Show("Startup failed.\n\n" + ex.Message, "WindowSnap", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return 1;
         }
-        finally { mutex.ReleaseMutex(); }
+        finally
+        {
+            if (ownsMutex) mutex?.ReleaseMutex();
+            mutex?.Dispose();
+        }
     }
 }
 
@@ -129,7 +148,8 @@ internal sealed class TrayContext : ApplicationContext
             failures.Clear();
             return null;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or System.Security.SecurityException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or System.Security.SecurityException or
+            System.Runtime.InteropServices.COMException or InvalidOperationException)
         { return "Save failed: " + ex.Message; }
     }
 
